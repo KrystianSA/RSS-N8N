@@ -1,0 +1,759 @@
+{
+  "name": "Codzienne podsumowanie treści RSS",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1888,
+        -464
+      ],
+      "id": "4b4ae821-fc26-4d65-a540-f4328b641066",
+      "name": "Uruchom pobieranie RSS o 8:00",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "2841cca4-93d7-808f-bfaf-f14d37708411",
+          "mode": "list",
+          "cachedResultName": "RSS",
+          "cachedResultUrl": "https://www.notion.so/2841cca493d7808fbfaff14d37708411"
+        },
+        "returnAll": true,
+        "filterType": "manual",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -1664,
+        -464
+      ],
+      "id": "e624f699-f018-4299-8ce0-081e278a2358",
+      "name": "Pobierz wszystkie rekordy z bazy danych",
+      "credentials": {
+        "notionApi": {
+          "id": "bcK8Qv7iw8yNCuDr",
+          "name": "Notion API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -944,
+        -624
+      ],
+      "id": "d792e7d8-74bd-4245-b1b1-a1d33687e4a0",
+      "name": "Przejdz po każdym elemencie w tabeli",
+      "notesInFlow": true,
+      "alwaysOutputData": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.property_link }}",
+        "options": {
+          "customFields": "={{ $json.id }}"
+        }
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -656,
+        -608
+      ],
+      "id": "38bfb2bf-f183-4843-989e-b050d6730f8e",
+      "name": "Zaczytaj link RSS",
+      "retryOnFail": false,
+      "alwaysOutputData": false,
+      "notesInFlow": false,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "property_link,id",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -1440,
+        -464
+      ],
+      "id": "3bdef022-ace1-4c35-b923-bb25eef810b9",
+      "name": "Wyciąg z bazy Linki"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7dba622c-91d5-4766-9541-34acf213a848",
+              "leftValue": "={{!$json.property_link.match(/^https?:\\/\\//) }}",
+              "rightValue": "http:// ",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1216,
+        -464
+      ],
+      "id": "cfe7c26b-cdb4-4cb0-bd59-ab1e55bd0f5a",
+      "name": "Czy linki zaczynaja się od http/s ?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// scal wszystkie błędne linki w HTML listę\nconst htmlList = items.map(item => {\n  return `<li><a href=\"${item.json.property_link}\" target=\"_blank\">${item.json.property_link}</a></li>`;\n}).join('');\n\nreturn [\n  {\n    json: {\n      emailBody: `\n        <p>Cześć,</p>\n        <p>Podczas pobierania kanałów RSS wystąpiły błędy w następujących linkach:</p>\n        <ul>${htmlList}</ul>\n        <p>Sprawdź źródła i popraw adresy w Notion.</p>\n      `\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        -448
+      ],
+      "id": "16ba9778-2849-43ad-a670-cd2328e1d911",
+      "name": "Przygotuj wiadomosc do wyslania"
+    },
+    {
+      "parameters": {
+        "sendTo": "ksasiadek64@gmail.com",
+        "subject": "Automatyzacja RSS - Raport",
+        "message": "={{ $json.emailBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        160,
+        -448
+      ],
+      "id": "e53ef57f-3d25-47d6-92d8-542ed31ad046",
+      "name": "wyslij email",
+      "webhookId": "5e9e8ed9-59d1-447b-b2b4-985c4c2b0ce4",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2BoJUGxWdYj58DGn",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1888,
+        -96
+      ],
+      "id": "0942ad59-f4e1-4035-9822-710466577bfb",
+      "name": "Uruchom czyszczenie tabeli",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "value": "g9ouBAOSzNR02FtL",
+          "mode": "list",
+          "cachedResultName": "RSS History",
+          "cachedResultUrl": "/projects/E55FRj5Az7nC8GNQ/datatables/g9ouBAOSzNR02FtL"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "date",
+              "condition": "gte",
+              "keyValue": "={{ new Date(Date.now() - 7*24*60*60*1000).toISOString() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -1664,
+        -96
+      ],
+      "id": "dca5a261-0244-458e-870a-0a9a72828464",
+      "name": "Usun wpisy starsze niz 7 dni1"
+    },
+    {
+      "parameters": {
+        "content": "## Gałąź odpowiedzialna za usuwanie wpisów starszych niż 7 dni z tabeli RSS History",
+        "height": 288,
+        "width": 672
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2032,
+        -224
+      ],
+      "typeVersion": 1,
+      "id": "31a82f31-bfe8-4aa9-8980-694cd8059d4e",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Streszcz wiadomości z poniższego zbioru linków RSS.\nDla każdego linku utwórz osobny blok HTML zgodny z zasadami z system promptu.\nDane wejściowe:\n\n{{ $json.title }}-{{ $json.link }}-{{ $json.summary }}"
+            },
+            {
+              "content": "=🎩 Jesteś redaktorem „☕ Porannego Przeglądu RSS”.\nTworzysz krótkie, inteligentne streszczenia wiadomości technologicznych i bezpieczeństwa IT.\nPiszesz po polsku z lekkością i humorem – Twoje teksty są merytoryczne, ale wciągające jak poranny scroll z kawą ☕.\nStyl: łączysz fakty + subtelny ironiczny humor (lekki, memiczny, nigdy obraźliwy).\nKażdy artykuł:\nma nagłówek w <h2> z tematycznym emoji,\nstreszczenie w <p>,\nźródło w <small><a> na końcu.\nPo 1 lub 2 artykułach możesz (ale nie musisz) wstawić krótkiego żartu, mema lub komentarza humorystycznego w HTML, np.:\n<div class=\"meme\">\n  <p><i>Kiedy AWS pada, a ty właśnie deployujesz 🚒</i></p>\n</div>\nMemy lub żarty:\nwymyślaj samodzielnie, na podstawie tematyki artykułów,\nnie używaj linków ani obrazków z Internetu,\nmogą być w formie tekstu, emotikony, lub krótkiego ASCII art.\nNa końcu możesz dodać jedno humorystyczne podsumowanie przeglądu.\n\nKażdy artykuł zakończ linią źródła w formacie:\n\nTytuł - link\n",
+              "role": "system"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        144,
+        -832
+      ],
+      "id": "1a9a8330-073c-4301-b9f0-a6ea58704e1a",
+      "name": "Przygotuj podsumowanie RSS",
+      "credentials": {
+        "openAiApi": {
+          "id": "0aVMXozBdXs60Y4H",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "rowNotExists",
+        "dataTableId": {
+          "__rl": true,
+          "value": "g9ouBAOSzNR02FtL",
+          "mode": "list",
+          "cachedResultName": "RSS History",
+          "cachedResultUrl": "/projects/E55FRj5Az7nC8GNQ/datatables/g9ouBAOSzNR02FtL"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "link",
+              "keyValue": "={{ $json.link }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -512,
+        -832
+      ],
+      "id": "02cc28c4-d232-442a-b756-107d65959513",
+      "name": "Czy wpis nie istnieje w tabeli ?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "709efb66-9f7c-4c63-9e38-bc28afb50e79",
+              "leftValue": "={{ $json.pubDate }}",
+              "rightValue": "={{ new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0] }}\n",
+              "operator": {
+                "type": "dateTime",
+                "operation": "after"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -736,
+        -832
+      ],
+      "id": "a8ca1fbf-d43f-48aa-ba7e-595e5461b5ee",
+      "name": "Wybierz najnowsze wpisy"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "g9ouBAOSzNR02FtL",
+          "mode": "list",
+          "cachedResultName": "RSS History",
+          "cachedResultUrl": "/projects/E55FRj5Az7nC8GNQ/datatables/g9ouBAOSzNR02FtL"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "title": "={{ $json.title }}",
+            "link": "={{ $json.link }}",
+            "summary": "={{ $json.summary }}",
+            "date": "={{ $json.pubDate }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "link",
+              "displayName": "link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -288,
+        -832
+      ],
+      "id": "b62bb172-f898-4b49-bbdb-9343e2cec436",
+      "name": "Jesli nie - Dopisz dane w tabeli"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Link działa ?|rich_text",
+              "textContent": "Nie działa "
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -288,
+        -448
+      ],
+      "id": "2dcd06ec-9864-4333-976e-af4a474559ed",
+      "name": "Zaktualizuj kolumne \"Link działa ?\"",
+      "credentials": {
+        "notionApi": {
+          "id": "bcK8Qv7iw8yNCuDr",
+          "name": "Notion API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "title"
+            },
+            {
+              "fieldToAggregate": "link"
+            },
+            {
+              "fieldToAggregate": "summary"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        -832
+      ],
+      "id": "af825af1-d09d-4f55-945c-383758e83c0c",
+      "name": "Połącz w dane jedną liste"
+    },
+    {
+      "parameters": {
+        "operation": "Convert HTML To PDF",
+        "inputDataType": "htmlCode",
+        "htmlCode": "={{ $json.html }}",
+        "docName": "Podsumowanie.html",
+        "printBackground": true,
+        "outputFileName": "Podsumowanie.pdf"
+      },
+      "type": "n8n-nodes-pdf4me.PDF4me",
+      "typeVersion": 1,
+      "position": [
+        672,
+        -832
+      ],
+      "id": "8c78e9f5-ff54-471a-b979-88f8a92de943",
+      "name": "PDF4me",
+      "credentials": {
+        "pdf4meApi": {
+          "id": "8DErZhZdor0peHOt",
+          "name": "PDF4ME account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Wyciągamy czysty HTML z wiadomości AI\nconst raw = $input.first().json.message?.content || \"\";\n\n// Usuwa początkowe i końcowe ```html ... ```\nconst cleaned = raw\n  .replace(/^```html/, '')\n  .replace(/```$/, '')\n  .trim();\n\n// Aktualna data w formacie PL\nconst date = new Date().toLocaleDateString(\"pl-PL\", {\n  day: \"2-digit\",\n  month: \"long\",\n  year: \"numeric\"\n});\n\n// Budujemy kompletny dokument HTML z CSS + nagłówkiem\nconst styled = `\n<!DOCTYPE html>\n<html lang=\"pl\">\n<head>\n<meta charset=\"UTF-8\">\n<title>Poranny Przegląd RSS</title>\n<style>\n  body {\n    font-family: \"Helvetica Neue\", Arial, sans-serif;\n    color: #222;\n    line-height: 1.7;\n    padding: 2.5em;\n    background-color: #fff;\n    max-width: 900px;\n    margin: auto;\n  }\n  header {\n    text-align: center;\n    margin-bottom: 40px;\n  }\n  header h1 {\n    font-size: 2.4em;\n    color: #000;\n    margin-bottom: 5px;\n  }\n  header p {\n    color: #777;\n    font-size: 0.9em;\n    margin-top: 0;\n  }\n  h2 {\n    color: #e85d04;\n    margin-top: 1.4em;\n    margin-bottom: 0.4em;\n  }\n  p {\n    margin-bottom: 0.8em;\n  }\n  /* --- NOWY STYL ŹRÓDŁA --- */\n  .source {\n    display: block;\n    margin-top: 0.5em;\n    color: #666;\n    font-size: 0.85em;\n  }\n  .source a {\n    color: #e85d04;\n    text-decoration: none;\n    font-weight: bold;\n  }\n  .source a:hover {\n    text-decoration: underline;\n  }\n  .meme {\n    text-align: center;\n    margin: 1.8em 0;\n  }\n  .meme p {\n    font-style: italic;\n    color: #444;\n  }\n</style>\n</head>\n<body>\n  <header>\n    <h1>☕ Poranny Przegląd RSS</h1>\n    <p>${date}</p>\n  </header>\n\n  ${cleaned}\n\n  <footer style=\"margin-top:3em; text-align:center; font-size:0.85em; color:#777;\">\n    <p>Generowane automatycznie przez N8N – Twój redaktor AI 🤖</p>\n  </footer>\n</body>\n</html>\n`;\n\nreturn [{ json: { html: styled } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        -832
+      ],
+      "id": "fe1a63fd-9d35-43a8-9ff4-b3f3712261ef",
+      "name": "Przygotuj szablon PDF"
+    },
+    {
+      "parameters": {
+        "sendTo": "ksasiadek64@gmail.com",
+        "subject": "Podsumowanie treści RSS",
+        "message": "<div style=\"font-family:Arial,Helvetica,sans-serif; color:#222; line-height:1.6; padding:1.5em;\">   <h2 style=\"color:#000; margin-top:0;\">☕ Poranny Przegląd RSS</h2>   <p>Cześć 👋</p>   <p>     Oto dzisiejsza porcja najświeższych ulubionych wiadomości.   </p>   <p>     Miłego dnia i spokojnego deploya! 🚀       <br>— Twój redaktor AI 🤖   </p>   <hr style=\"margin-top:2em; border:none; border-top:1px solid #eee;\">   <p style=\"font-size:0.85em; color:#777;\">     Ten przegląd został wygenerowany automatycznie przez n8n + OpenAI.       Jeśli chcesz usunąć się z listy, po prostu zignoruj tę wiadomość 😉   </p> </div>",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {}
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        880,
+        -832
+      ],
+      "id": "0fc4a9bb-59f0-4e03-84ea-0876157d4e90",
+      "name": "Send a message",
+      "webhookId": "3864be41-28a3-48f1-825a-b98d6d84344a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2BoJUGxWdYj58DGn",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Uruchom pobieranie RSS o 8:00": {
+      "main": [
+        [
+          {
+            "node": "Pobierz wszystkie rekordy z bazy danych",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pobierz wszystkie rekordy z bazy danych": {
+      "main": [
+        [
+          {
+            "node": "Wyciąg z bazy Linki",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Przejdz po każdym elemencie w tabeli": {
+      "main": [
+        [
+          {
+            "node": "Wybierz najnowsze wpisy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Zaczytaj link RSS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Zaczytaj link RSS": {
+      "main": [
+        [
+          {
+            "node": "Przejdz po każdym elemencie w tabeli",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Zaktualizuj kolumne \"Link działa ?\"",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wyciąg z bazy Linki": {
+      "main": [
+        [
+          {
+            "node": "Czy linki zaczynaja się od http/s ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Czy linki zaczynaja się od http/s ?": {
+      "main": [
+        [
+          {
+            "node": "Przejdz po każdym elemencie w tabeli",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Zaktualizuj kolumne \"Link działa ?\"",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Przygotuj wiadomosc do wyslania": {
+      "main": [
+        [
+          {
+            "node": "wyslij email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Uruchom czyszczenie tabeli": {
+      "main": [
+        [
+          {
+            "node": "Usun wpisy starsze niz 7 dni1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Przygotuj podsumowanie RSS": {
+      "main": [
+        [
+          {
+            "node": "Przygotuj szablon PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Czy wpis nie istnieje w tabeli ?": {
+      "main": [
+        [
+          {
+            "node": "Jesli nie - Dopisz dane w tabeli",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wybierz najnowsze wpisy": {
+      "main": [
+        [
+          {
+            "node": "Czy wpis nie istnieje w tabeli ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jesli nie - Dopisz dane w tabeli": {
+      "main": [
+        [
+          {
+            "node": "Połącz w dane jedną liste",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zaktualizuj kolumne \"Link działa ?\"": {
+      "main": [
+        [
+          {
+            "node": "Przygotuj wiadomosc do wyslania",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Połącz w dane jedną liste": {
+      "main": [
+        [
+          {
+            "node": "Przygotuj podsumowanie RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Przygotuj szablon PDF": {
+      "main": [
+        [
+          {
+            "node": "PDF4me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF4me": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Warsaw",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "cd0aa501-73f5-42f2-af84-8566a47622db",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "19544c86efc20eb7a81858148d55d7a94adf924fabcaca647c597e405356984f"
+  },
+  "id": "8Mnm1EaLxuKJE5EG",
+  "tags": [
+    {
+      "createdAt": "2025-10-25T11:39:13.853Z",
+      "updatedAt": "2025-10-25T11:39:13.853Z",
+      "id": "js0221tlqgqr1BIE",
+      "name": "PROD"
+    }
+  ]
+}
