@@ -1,2 +1,9 @@
-# RSS-N8N
-Automation which generate summary from all the rss feeds once a day
+# RSS Automation with n8n
+
+## Description
+Workflow automation that fetches RSS feeds and processes data.
+
+## Tech
+- n8n
+- Webhooks
+- Automation
